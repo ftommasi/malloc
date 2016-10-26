@@ -9,44 +9,52 @@ struct node{
 
 
 //head node 
-struct node mhead;
-/*
-mhead.next = NULL;
-mhead.addr = NULL;
-mhead.size = NULL;
-mhead.free = NULL;
-*/
-struct node* head = &head;
+struct node mhead={
+.addr = NULL,
+.size = NULL,
+.free = NULL,
+.next = NULL 
+};
+struct node* head = &mhead;
 
-void LLinsert(struct node* node){
-  struct node* curr;
+void LLinsert(void* val){
+ struct node* curr; 
   curr = head;
-  while(curr->next != NULL){
-    //do shit here
+  while(curr->next){
     curr = curr->next;
   }
+  
+  struct node* ptemp =(struct node*) malloc(sizeof(struct node));
+  ptemp-> addr = val;
+  ptemp-> size = 1;
+  ptemp-> free = 0;
+  ptemp-> next = NULL;
+  
+  curr->next = ptemp;
 
-  curr->next = node;
+
 }
 
 void LLremove(){
   struct node* curr;
+  struct node* prev;
   curr = head;
-  while(curr->next != NULL){
-    //do shit here
+  while(curr->next){
+    prev = curr;
     curr = curr->next;
+
   }
+  printf("prev has val %d\n",prev->addr);
+  printf("curr hasval %d\n",curr->addr);
   
-  struct node* temp;
-  temp = curr;
-  curr->next = NULL;
-  free(temp);
+  prev->next = NULL;
+  free(curr);
 }
 
 void* TEST_malloc(size_t size){
   struct node* curr;
   curr = head;
-  while(curr->next != NULL){
+  while(curr->next){
     //do shit here
     curr = curr->next;
   }
@@ -57,7 +65,7 @@ void* TEST_malloc(size_t size){
 void* TEST_free(void* ptr){
   struct node* curr;
   curr = head;
-  while(curr->next != NULL){
+  while(curr->next){
     //do shit here
     curr = curr->next;
   }
@@ -67,18 +75,27 @@ void* TEST_free(void* ptr){
 
 int main(){
   printf("Testing LinkedList\n");
+  
   int i=0;
   for(i;i<10;i++){
-    struct node temp;
-    temp.addr = i;
-    temp.size = 1;
-    temp.free = 0;
-    LLinsert(&temp);
+    printf("inserting val %d\n",i);
+    LLinsert(i);
   }
   
   struct node* curr;
-  curr = head;
-  while(curr->next != NULL){
+  curr = head->next; 
+  while(curr){
+    printf("%d\n",curr->addr);
+    curr = curr->next;
+  }
+  //printf("attempting to delete %d\n",curr->addr);  
+  
+  for(i=0;i<10;i++){
+    LLremove();
+  }
+  printf("should be empty\n");
+  curr = head->next; 
+  while(curr){
     printf("%d\n",curr->addr);
     curr = curr->next;
   }

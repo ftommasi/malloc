@@ -1,2 +1,2 @@
 all:
-	gcc test.c memory.c -o test
+	gcc -g  malloc.c -o malloc 
