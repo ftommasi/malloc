@@ -1,0 +1,1 @@
+gdb --args malloc -d 1000
