@@ -23,13 +23,13 @@ struct node mhead={
 };
 struct node* head = &mhead;
 
-long  round_to_nearest_pagesize(size_t size){
+size_t round_to_nearest_pagesize(size_t size){
   long page_size = sysconf(_SC_PAGESIZE);
-  return size + (size % page_size);
+  return (size_t)size + (size % page_size);
 }
 
-long  round_to_nearest_eight(long  i){
-  return i + (8 - i % 8);
+size_t round_to_nearest_eight(long  i){
+  return (size_t)i + (8 - i % 8);
 }
 
 void* TEST_malloc(size_t size){
@@ -39,7 +39,20 @@ void* TEST_malloc(size_t size){
   struct node* curr;
   curr = head;
   while(!curr->tail){
-    //if(curr->free){} //split the node
+  if(curr->free && curr->size >= size){
+     //split the node
+    struct node* split_node;
+    split_node = (struct node*)(curr->addr + size);
+    split_node->size = size;
+    split_node->addr = curr->addr+size;
+    split_node->tail=0;
+    split_node->free=0;
+    split_node->next = curr->next;
+
+    curr->next = split_node;    
+    return curr->addr;  
+
+   }
     curr = curr->next;
   }
   
@@ -79,7 +92,7 @@ void* TEST_free(void* ptr){
 
 
 
-#define NUMSLOTS 100
+#define NUMSLOTS 10
 char *slots[NUMSLOTS];
 size_t sizes[NUMSLOTS];
 
@@ -114,23 +127,24 @@ int main(int argc, char** argv){
   // Main loop:
   while (1) {
     n = rand() % NUMSLOTS;
-    
+    printf("[n is now %d]\n",n) ;
     if (slots[n]) {
       // Going to free slot[n]
       // Check contents to see if it's still 0,1,2,3,4,...
+      
+      if (verbose) printf("freeing slot %d.\n",n);
       for (j=1; j<sizes[n]; j++) {
 	      if (*(slots[n]+j) != (char) j) {
       	  printf("Memory corruption detected.\n");
       	  exit(1);
       	}
-            
-        if (verbose) printf("freeing slot %d.\n",n);
-        
-        TEST_free(slots[n]);
-        slots[n] = NULL;
-        frees++;
-      
       }
+      
+      TEST_free(slots[n]);
+      slots[n] = NULL;
+      frees++;
+
+      printf("Memory Validated for slot %d.\n",n);
     }
     
     else {
@@ -144,10 +158,25 @@ int main(int argc, char** argv){
 	      exit(1);
       }
       
-      if(verbose) printf("MALLOC'd AT %p\n",&slots[n]);
       // Fill block with 0,1,2,3,4,...
-      for (j=0; j<sizes[n]; j++) *(slots[n]+j) = (char) j;
+      for (j=0; j<sizes[n]; j++){ 
+        
+        *(slots[n]+j) = (char) j;
+            
 
+     //   if(verbose) 
+//        printf("MALLOC'd %s (n=%d,j=%d) AT %p\n" ,*(slots[n]+j),n,j,&slots[n]+j);
+        
+      }
+      //validating what I just did
+      for (j=1; j<sizes[n]; j++) {
+        if (*(slots[n]+j) != (char) j){
+          printf("Memory corruption detected.\n");
+          exit(1);
+        }
+      }
+      
+      printf("malloc successful\n");
       mallocs++;
     }
     
