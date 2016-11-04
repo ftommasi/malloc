@@ -13,7 +13,7 @@ struct node{
   char free;
 }node;
 
-//head node 
+//head node to Linked List 
 struct node mhead={
 .addr = 0,
 .size = 0,
@@ -22,6 +22,10 @@ struct node mhead={
 .next = 0 
 };
 struct node* head = &mhead;
+
+void my_print(char* string,int size){
+  write(STDOUT_FILENO,string,size);
+}
 
 size_t round_to_nearest_pagesize(size_t size){
   long page_size = sysconf(_SC_PAGESIZE);
@@ -38,24 +42,43 @@ void* TEST_malloc(size_t size){
   void* top = sbrk(0);
   struct node* curr;
   curr = head;
-  while(!curr->tail){
-  if(curr->free && curr->size >= size){
-     //split the node
-    struct node* split_node;
-    split_node = (struct node*)(curr->addr + size);
-    split_node->size = size;
-    split_node->addr = curr->addr+size;
-    split_node->tail=0;
-    split_node->free=0;
-    split_node->next = curr->next;
+ 
+  while(curr->next){
 
-    curr->next = split_node;    
+  if(curr->free && curr->size >= size){
+    printf("FOUND A HOLE TO PLUG INTO\n");
+    curr->free = 0;
+    return curr->addr; 
+  }
+
+#if 0  
+ if(curr->free && curr->size > (size + 2*sizeof(struct node))){
+     //split the node
+    printf("--SPLITTING NODE--\n");
+    struct node* second_node;
+    //curr becomes the first half of split node
+    second_node = (struct node*)((char*)curr->addr + size);
+    second_node->size = curr->size - (size + sizeof(struct node));
+    second_node->addr = (void*)
+      round_to_nearest_eight(((char*)curr->addr + size) + sizeof(node));
+    second_node->tail = curr->tail;
+    second_node->free = 1;
+    second_node->next = curr->next;
+    
+    curr->next = second_node;
+    curr->size = size;
+    curr->free = 0;
+    curr->tail = 0;
+    
     return curr->addr;  
 
    }
+#endif
     curr = curr->next;
   }
   
+
+    printf(":::Call to SBRK:::\n");
   void* new = 
     sbrk(round_to_nearest_pagesize(size+sizeof(node)));
   if( new == (void*)-1 ){
@@ -64,29 +87,42 @@ void* TEST_malloc(size_t size){
     exit(-1);
     //return NULL;
   }
-  
-  
   //currently the node* is at begginning of memory chunk
   struct node* n;
+  struct node* free;
   n = (struct node*) new;
+  //the free space is just the memory after the node and the requested size at the address given by sbrk
+  free = (struct node*)((char*)new + sizeof(struct node) + size);
   curr->next = n;
+  n->free = 0;
   n->size = size;
-  n->addr = (void*)round_to_nearest_eight(new);
-  n->tail= 1;
+  n->addr = (void*)round_to_nearest_eight(new+sizeof(node));
+  n->tail= 0;
   n->next = NULL;
-  //return new;
-  return (void*)round_to_nearest_eight(new+sizeof(node));
-}
+#if 0
+  free->addr= (void*)((char*)new + sizeof(node) + size);
 
-void* TEST_free(void* ptr){
+  free->free = 1;
+  free->size = sysconf(_SC_PAGESIZE) - size;                                           //return memory after node;
+  free->next = NULL;
+  free->tail = 0;
+#endif
+  return n->addr;
+  }
+
+
+  void TEST_free(void* ptr){
   struct node* curr;
   curr = head;
-  while(curr->next){
-    if(curr == ptr) break;
+
+  while(curr->next && curr->addr != ptr){
+    //printf("want to free %p | looking at %p (addr %p)\n",ptr,curr,curr->addr);
     curr = curr->next;
   }
-  if(!curr->free) 
+  if(curr->addr == ptr){
+   printf("FREE'd %p\n",curr->addr);
     curr->free = 1;
+  }
 
 }
 
@@ -96,7 +132,7 @@ void* TEST_free(void* ptr){
 char *slots[NUMSLOTS];
 size_t sizes[NUMSLOTS];
 
-int main(int argc, char** argv){
+int churn_main(int argc, char** argv){
   int i,n,size,maxblock;
   long j;
   int verbose=0;
@@ -183,7 +219,25 @@ int main(int argc, char** argv){
     // Periodically report progress
     if ((mallocs + frees) % 1000 == 0) 
       printf("%ld\t%ld\t%p\n",mallocs,frees,sbrk(0));
+  }
 }
+
+
+int main(int argc, char** argv){
+
+ churn_main(argc,argv);
+ 
+ 
+ void* c = TEST_malloc(5000);
+ printf("my node %d\n",sizeof(node));
+ 
+ c = "TEST STRING";
+ TEST_free(c);
+ void* p = TEST_malloc(1000);
+ p = "TEST SSTRING 2\n";
+ TEST_free(p);
+ void* a = TEST_malloc(1000);
+ a = "TEST STRING 3\n";
 }
 //--------------------------------------
 
