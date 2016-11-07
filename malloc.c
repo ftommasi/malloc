@@ -29,7 +29,7 @@ void my_print(char* string,int size){
 
 size_t round_to_nearest_pagesize(size_t size){
   long page_size = sysconf(_SC_PAGESIZE);
-  return (size_t)size + (size % page_size);
+  return (size_t)size + (page_size - size % page_size);
 }
 
 size_t round_to_nearest_eight(long  i){
@@ -44,35 +44,46 @@ void* TEST_malloc(size_t size){
   curr = head;
  
   while(curr->next){
-
+#if 0 
   if(curr->free && curr->size >= size){
-    printf("FOUND A HOLE TO PLUG INTO\n");
+    printf("PLUG AND CHUG BABY\n");
     curr->free = 0;
     return curr->addr; 
   }
+#endif
 
-#if 0  
+#if  1 
  if(curr->free && curr->size > (size + 2*sizeof(struct node))){
-     //split the node
-    printf("--SPLITTING NODE--\n");
-    struct node* second_node;
-    //curr becomes the first half of split node
-    second_node = (struct node*)((char*)curr->addr + size);
-    second_node->size = curr->size - (size + sizeof(struct node));
-    second_node->addr = (void*)
-      round_to_nearest_eight(((char*)curr->addr + size) + sizeof(node));
-    second_node->tail = curr->tail;
-    second_node->free = 1;
-    second_node->next = curr->next;
-    
-    curr->next = second_node;
-    curr->size = size;
-    curr->free = 0;
-    curr->tail = 0;
-    
-    return curr->addr;  
-
+   
+   //if there is room for two non-zero size'd nodes
+   if(curr->size - (size+sizeof(node)) > 0){
+      printf("--SPLITTING NODE--\n");
+           struct node* second_node;
+      //curr becomes the first half of split node
+      second_node = (struct node*)((char*)curr->addr + size);
+      second_node->size = curr->size - (size + sizeof(struct node));
+      second_node->addr = (void*)
+        round_to_nearest_eight(((char*)second_node + sizeof(node)));
+      second_node->tail = curr->tail;
+      second_node->free = 1;
+      second_node->next = curr->next;
+     
+      curr->size = size;
+      curr->free = 0;
+      curr->tail = 0;
+      curr->next = second_node;
+      
+      return curr->addr;  
+    }
    }
+   
+ //if there is only room for one 
+    if(curr->free && curr->size >= size){
+      printf("PLUG AND CHUG BABY\n");
+      
+      curr->free = 0;
+      return curr->addr; 
+     }
 #endif
     curr = curr->next;
   }
@@ -80,7 +91,7 @@ void* TEST_malloc(size_t size){
 
     printf(":::Call to SBRK:::\n");
   void* new = 
-    sbrk(round_to_nearest_pagesize(size+sizeof(node)));
+    sbrk(round_to_nearest_pagesize(size+sizeof(struct node)));
   if( new == (void*)-1 ){
     printf("Error calling sbrk!\n");
     errno = ENOMEM;
@@ -92,20 +103,30 @@ void* TEST_malloc(size_t size){
   struct node* free;
   n = (struct node*) new;
   //the free space is just the memory after the node and the requested size at the address given by sbrk
-  free = (struct node*)((char*)new + sizeof(struct node) + size);
   curr->next = n;
   n->free = 0;
   n->size = size;
-  n->addr = (void*)round_to_nearest_eight(new+sizeof(node));
+  n->addr = (void*)round_to_nearest_eight((char*)new+sizeof(node));
   n->tail= 0;
   n->next = NULL;
-#if 0
-  free->addr= (void*)((char*)new + sizeof(node) + size);
-
-  free->free = 1;
-  free->size = sysconf(_SC_PAGESIZE) - size;                                           //return memory after node;
-  free->next = NULL;
-  free->tail = 0;
+#if 1
+  //if (sysconf(_SC_PAGESIZE) - (size+sizeof(struct node)) > 0 ){
+  if (
+      round_to_nearest_pagesize(size+sizeof(struct node))
+      > 
+      (size + 2*sizeof(struct node))
+      ){
+    free = (struct node*)((char*) n->addr +  size);
+    n->next = free;
+    free->addr= (void*)round_to_nearest_eight(
+        (char*)free + sizeof(struct node));
+    free->free = 1;
+    free->size = 
+      round_to_nearest_pagesize(size+sizeof(struct node)) - 
+      (size + 2*sizeof(struct node));                                 
+    free->next = (struct node*)"FUCK";
+    free->tail = 0;
+  }
 #endif
   return n->addr;
   }
@@ -186,8 +207,9 @@ int churn_main(int argc, char** argv){
     else {
       // Going to malloc slot[n]
       if (verbose) printf("malloc slot %d.\n",n);
-
+     
       sizes[n] = rand() % maxblock + 1;
+      if(verbose) printf("Malloc'ing %d\n",sizes[n]); 
       slots[n] = (char *) TEST_malloc (sizes[n]);
       if (slots[n] == NULL) {
 	      fprintf(stderr,"out of memory\n");

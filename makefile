@@ -1,2 +1,2 @@
 all:
-	gcc -g  malloc.c -o malloc 
+	gcc -g  malloc2.c -o malloc 
