@@ -43,11 +43,12 @@ void split_node(struct node* current, size_t requested_size){
   second->next = current->next;
 
   current->size = requested_size;
+  printf("[next assignment in split]\n");
   current->next = second;
   current->free = 0;
 }
 
-void* TEST_malloc(size_t u_size){
+void* malloc(size_t u_size){
   if(u_size < 1)
     return NULL;
   struct node* curr = head;
@@ -66,7 +67,10 @@ void* TEST_malloc(size_t u_size){
     }
     curr = curr->next;
   }
-  void* new = sbrk(round_to_page_size((unsigned long)(u_size + sizeof(struct node))));
+  
+  void* new = 
+    sbrk(round_to_page_size((unsigned long)(u_size + sizeof(struct node))));
+  
   if(new == (void*)-1){
     errno = ENOMEM;
     exit(-1);
@@ -76,27 +80,32 @@ void* TEST_malloc(size_t u_size){
  struct  node* remaining;
 
   allocated = (struct node*) new;
-  allocated->addr = (void*)round_to_eight(
-      (unsigned long)((char*)allocated + sizeof(struct node))
-      );
+  
+  allocated->addr = 
+    (void*)round_to_eight((unsigned long)((char*)allocated + sizeof(struct node)));
+  
+  printf("[next assignment in sbrk]\n");
   allocated->next = NULL;
   allocated->free = 0;
   allocated->size = u_size;
 
   curr->next = allocated;
+  
   long space_left = 
-    round_to_page_size((unsigned long)
-        (u_size + sizeof(struct node))) 
-    - u_size + 2* sizeof(struct node);
+    
+    round_to_page_size((unsigned long) (u_size + sizeof(struct node))) - u_size + 2* sizeof(struct node);
   if(space_left > sizeof(struct node)){
+    
     remaining = (struct node*) ((char*)allocated->addr + u_size);
-    remaining->addr = (void*)round_to_eight(
-       (unsigned long)((char*)remaining + sizeof(struct node))
-       );
+    
+    remaining->addr =
+      (void*)round_to_eight((unsigned long)((char*)remaining + sizeof(struct node)));
+    
     remaining->free = 1;
     remaining->size = space_left - sizeof(struct node);
     remaining->next = NULL;
 
+    printf("[next assignment in free_space]\n");
     allocated->next = remaining;
   }
 
@@ -104,7 +113,7 @@ void* TEST_malloc(size_t u_size){
 }
 
 
-void TEST_free(void* addr){
+void free(void* addr){
   if(addr){
     struct node* curr = head;
     while(curr->next && curr->addr != addr){
@@ -118,14 +127,14 @@ void TEST_free(void* addr){
 }
 
 
-void* TEST_calloc(size_t nmemb, size_t size){
-  void* array = TEST_malloc(nmemb*size);
+void* calloc(size_t nmemb, size_t size){
+  void* array = malloc(nmemb*size);
   memset(array,0,nmemb*size);
   return array;
 }
 
 
-void* TEST_realloc(void *ptr, size_t size){
+void* realloc(void *ptr, size_t size){
   struct node* curr = head;
   while(curr->next && curr->addr != ptr){
     curr = curr->next;
@@ -136,9 +145,9 @@ void* TEST_realloc(void *ptr, size_t size){
       return curr->addr;
     }
     else{
-      void* new = TEST_malloc(size);
+      void* new = malloc(size);
       memcpy(new,ptr,curr->size);
-      TEST_free(ptr);
+      free(ptr);
       return new;
     }
   }
@@ -196,7 +205,7 @@ int i,n,size,maxblock;
       }
       
       if (verbose) printf("freeing slot %d.\n",n);
-      TEST_free(slots[n]);
+      free(slots[n]);
       slots[n] = NULL;
       frees++;
 
@@ -205,7 +214,7 @@ int i,n,size,maxblock;
       if (verbose) printf("malloc slot %d.\n",n);
 
       sizes[n] = rand() % maxblock + 1;
-      slots[n] = (char *) TEST_malloc (sizes[n]);
+      slots[n] = (char *) malloc (sizes[n]);
       if (slots[n] == NULL) {
 	fprintf(stderr,"out of memory\n");
 	exit(1);
@@ -345,11 +354,7 @@ int churn_2_main(int argc,char** argv){
 ///---------------------------------
 
 
-int main(int argc, char** argv){
 
-  churn_main(argc,argv);
-  churn_2_main(argc,argv);
-}
 
   
 

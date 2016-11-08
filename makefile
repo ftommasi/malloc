@@ -1,2 +1,3 @@
 all:
-	gcc -g  malloc2.c -o malloc 
+	gcc -g churn.c malloc2.c -o churn
+	gcc -g churn2.c malloc2.c -o churn2
